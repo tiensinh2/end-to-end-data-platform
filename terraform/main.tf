@@ -20,13 +20,25 @@ resource "google_storage_bucket" "data_lake" {
   force_destroy = true
 }
 
-# BigQuery Dataset
+# BigQuery Dataset - Raw
 resource "google_bigquery_dataset" "binance" {
   dataset_id = "binance_data"
-  location   = var.region
+  location   = "asia-southeast1"
 }
 
-# BigQuery Table
+# BigQuery Dataset - Staging
+resource "google_bigquery_dataset" "binance_staging" {
+  dataset_id = "binance_data_staging"
+  location   = "asia-southeast1"
+}
+
+# BigQuery Dataset - Mart
+resource "google_bigquery_dataset" "binance_mart" {
+  dataset_id = "binance_data_mart"
+  location   = "asia-southeast1"
+}
+
+# BigQuery Table - Raw Klines
 resource "google_bigquery_table" "klines" {
   dataset_id          = google_bigquery_dataset.binance.dataset_id
   table_id            = "raw_klines"
