@@ -1,0 +1,9 @@
+version: 2
+
+sources:
+  - name: binance
+    database: market-data-platform-496706
+    schema: binance_data
+    tables:
+      - name: raw_klines
+        description: "Raw klines data từ Binance WebSocket"

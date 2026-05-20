@@ -1,0 +1,17 @@
+[project]
+name = "end-to-end-data-platform"
+version = "0.1.0"
+description = "End-to-end streaming data platform with Kafka + Flink + BigQuery"
+readme = "README.md"
+
+requires-python = ">=3.10,<3.12"
+
+dependencies = [
+    "kafka-python>=2.0.2",
+    "pandas>=2.2.0",
+    "numpy>=1.26.0",
+    "pyarrow>=11.0.0",
+    "google-cloud-bigquery>=3.41.0",
+    "google-cloud-storage>=3.10.1",
+    "websocket-client>=1.6.0"
+]

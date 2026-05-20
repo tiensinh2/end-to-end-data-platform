@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+dbt-env/
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+.terraform.lock.hcl
+
+# Env
+.env
+
+# IDE
+.vscode/
+.idea/
+
+# GCP credentials
+credentials.json
+
+# dbt
+dbt/binance_analytics/target/
+dbt/binance_analytics/dbt_packages/

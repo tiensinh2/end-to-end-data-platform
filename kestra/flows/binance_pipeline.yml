@@ -1,0 +1,32 @@
+id: binance_dbt_transform
+namespace: binance
+
+description: "Chạy dbt transform mỗi giờ"
+
+triggers:
+  - id: hourly_schedule
+    type: io.kestra.plugin.core.trigger.Schedule
+    cron: "0 * * * *"
+
+tasks:
+  - id: dbt_run
+    type: io.kestra.plugin.scripts.shell.Commands
+    description: "Chạy dbt models"
+    commands:
+      - /workspaces/end-to-end-data-platform/dbt-env/bin/dbt run
+          --project-dir /workspaces/end-to-end-data-platform/dbt/binance_analytics
+          --profiles-dir /home/codespace/.dbt
+    runner: PROCESS
+
+  - id: dbt_test
+    type: io.kestra.plugin.scripts.shell.Commands
+    description: "Test dbt models"
+    commands:
+      - /workspaces/end-to-end-data-platform/dbt-env/bin/dbt test
+          --project-dir /workspaces/end-to-end-data-platform/dbt/binance_analytics
+          --profiles-dir /home/codespace/.dbt
+    runner: PROCESS
+
+  - id: log_done
+    type: io.kestra.plugin.core.log.Log
+    message: "dbt transform completed at {{ execution.startDate }}"

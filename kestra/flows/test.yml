@@ -1,0 +1,7 @@
+id: test_flow
+namespace: de.zoomcamp
+
+tasks:
+  - id: log
+    type: io.kestra.plugin.core.log.Log
+    message: "Kestra OK"

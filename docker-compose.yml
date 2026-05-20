@@ -1,0 +1,183 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: end-to-end-data-platform-postgres-1
+
+    ports:
+      - "5432:5432"
+
+    environment:
+      POSTGRES_USER: kestra
+      POSTGRES_PASSWORD: kestra
+      POSTGRES_DB: kestra
+
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U kestra"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  kestra:
+    image: kestra/kestra:latest
+    container_name: end-to-end-data-platform-kestra-1
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+    ports:
+      - "8080:8080"
+
+    user: "root"
+
+    # FIX QUAN TRỌNG: format exec array (tránh exit 126)
+    command: ["server", "standalone"]
+
+    environment:
+      KESTRA_CONFIGURATION: |
+        datasources:
+          postgres:
+            url: jdbc:postgresql://postgres:5432/kestra
+            driverClassName: org.postgresql.Driver
+            username: kestra
+            password: kestra
+
+        kestra:
+          repository:
+            type: postgres
+
+          storage:
+            type: local
+            local:
+              basePath: /app/storage
+
+          queue:
+            type: postgres
+
+          tasks:
+            tmpDir:
+              path: /tmp/kestra-wd/tmp
+
+    volumes:
+      - kestra_storage:/app/storage
+      - /var/run/docker.sock:/var/run/docker.sock
+
+      # mount project (để chạy flow + producer nếu cần)
+      - /workspaces/end-to-end-data-platform/kestra/flows:/app/flows
+
+  kafka:
+    image: confluentinc/cp-kafka:7.7.0
+    container_name: end-to-end-data-platform-kafka-1
+
+    ports:
+      - "29092:29092"
+
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+
+      KAFKA_LISTENERS: >
+        PLAINTEXT://0.0.0.0:9092,
+        CONTROLLER://0.0.0.0:9093,
+        PLAINTEXT_HOST://0.0.0.0:29092
+
+      KAFKA_ADVERTISED_LISTENERS: >
+        PLAINTEXT://kafka:9092,
+        PLAINTEXT_HOST://localhost:29092
+
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: >
+        PLAINTEXT:PLAINTEXT,
+        CONTROLLER:PLAINTEXT,
+        PLAINTEXT_HOST:PLAINTEXT
+
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+
+      KAFKA_LOG_DIRS: /var/lib/kafka/data
+
+      CLUSTER_ID: "MkU3OEVBNTcwNTJENDM2Qk"
+
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+
+  jobmanager:
+    build:
+      context: ./flink
+      dockerfile: Dockerfile
+
+    container_name: end-to-end-data-platform-jobmanager-1
+
+    ports:
+      - "8081:8081"
+
+    command: jobmanager
+
+    volumes:
+      - ./flink:/opt/flink/jobs
+      - ./credentials.json:/opt/flink/credentials.json
+
+    environment:
+      FLINK_PROPERTIES: |
+        jobmanager.rpc.address: jobmanager
+
+      GOOGLE_APPLICATION_CREDENTIALS: /opt/flink/credentials.json
+
+  taskmanager:
+    build:
+      context: ./flink
+      dockerfile: Dockerfile
+
+    container_name: end-to-end-data-platform-taskmanager-1
+
+    depends_on:
+      - jobmanager
+
+    command: taskmanager
+
+    volumes:
+      - ./flink:/opt/flink/jobs
+      - ./credentials.json:/opt/flink/credentials.json
+
+    environment:
+      FLINK_PROPERTIES: |
+        jobmanager.rpc.address: jobmanager
+        taskmanager.numberOfTaskSlots: 2
+
+      GOOGLE_APPLICATION_CREDENTIALS: /opt/flink/credentials.json
+
+  flink-job:
+    build:
+      context: ./flink
+      dockerfile: Dockerfile
+
+    container_name: end-to-end-data-platform-flink-job-1
+
+    depends_on:
+      - kafka
+      - jobmanager
+      - taskmanager
+
+    volumes:
+      - ./flink:/opt/flink/jobs
+      - ./credentials.json:/opt/flink/credentials.json
+
+    environment:
+      GOOGLE_APPLICATION_CREDENTIALS: /opt/flink/credentials.json
+
+    command: >
+      bash -c "
+        echo 'Waiting for Flink cluster...' &&
+        sleep 20 &&
+        flink run -m jobmanager:8081 -py /opt/flink/jobs/consumer.py
+      "
+
+volumes:
+  postgres_data:
+  kestra_storage:
+  kafka_data:
